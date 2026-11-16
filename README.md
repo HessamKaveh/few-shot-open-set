@@ -3,6 +3,9 @@
 A from-scratch implementation of Prototypical Networks for few-shot image
 classification, trained and evaluated on the Omniglot dataset.
 
+<p align="center"><img src="results/episode_visualization.png" width="85%"><br>
+<em>A 5-way 5-shot episode on unseen Omniglot classes.</em></p>
+
 ## Task Setup
 5-way 5-shot learning: for each episode, 5 random character classes are
 sampled; the model sees only 5 labeled examples per class (support set)
@@ -32,8 +35,20 @@ python src/evaluate.py
 ```
 
 ## Results
-- `results/training_curves.png` — loss and accuracy (seen vs. unseen classes)
-- `results/episode_visualization.png` — a sample 5-way 5-shot episode
+
+| Metric | Value |
+|---|---|
+| 5-way 5-shot accuracy, validation episodes on unseen classes (final epoch) | **100 %** |
+| Training-episode accuracy (final epoch) | 99.6 % |
+| Epochs | 20 |
+
+<p align="center"><img src="results/training_curves.png" width="85%"></p>
+
+> Accuracy is averaged over sampled validation episodes; Omniglot 5-way 5-shot is close to saturated for Prototypical Networks (~99 % in the original paper).
 
 ## Author
 Hessam Kaveh — Research Fellow, Italian Institute of Technology
+
+## License
+
+Released under the [MIT License](LICENSE).

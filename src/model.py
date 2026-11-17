@@ -12,8 +12,8 @@ def conv_block(in_ch, out_ch):
 
 class EmbeddingNet(nn.Module):
     """
-    شبکه‌ای که هر تصویر رو به یک بردار embedding تبدیل می‌کنه.
-    در Prototypical Networks، فاصله این embedding ها معیار شباهت کلاس‌هاست.
+    Network that maps each image to an embedding vector.
+    In Prototypical Networks, distances between these embeddings measure class similarity.
     """
     def __init__(self, in_channels=1, hidden_dim=64):
         super().__init__()

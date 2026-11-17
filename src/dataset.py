@@ -18,10 +18,10 @@ transform = transforms.Compose([
 
 class EpisodicOmniglot:
     """
-    برای Few-Shot Learning، داده‌ها به شکل 'episode' نمونه‌گیری می‌شن:
-    هر episode شامل n_way کلاس تصادفی است، که هرکدام:
-    - k_shot نمونه برای support set (یادگیری)
-    - q_query نمونه برای query set (ارزیابی) دارند
+    For few-shot learning, data is sampled as 'episodes':
+    each episode contains n_way random classes, each with:
+    - k_shot samples for the support set (learning)
+    - q_query samples for the query set (evaluation)
     """
     def __init__(self, background=True, n_way=5, k_shot=5, q_query=5):
         self.dataset = datasets.Omniglot(
@@ -31,7 +31,7 @@ class EpisodicOmniglot:
         self.k_shot = k_shot
         self.q_query = q_query
 
-        # گروه‌بندی ایندکس‌ها بر اساس کلاس (character)
+        # group indices by class (character)
         self.class_to_indices = defaultdict(list)
         for idx, (_, label) in enumerate(self.dataset._flat_character_images):
             self.class_to_indices[label].append(idx)

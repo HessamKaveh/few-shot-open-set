@@ -35,7 +35,7 @@ def evaluate():
         dists = torch.cdist(q_emb, prototypes, p=2)
         preds = (-dists).argmax(dim=1)
 
-    # نمایش support set (نمونه‌های آموزشی هر کلاس)
+    # show the support set (training examples of each class)
     fig, axes = plt.subplots(N_WAY, K_SHOT + 1, figsize=(2 * (K_SHOT + 1), 2 * N_WAY))
     for c in range(N_WAY):
         class_imgs = s_img[s_label == c].cpu()
@@ -45,7 +45,7 @@ def evaluate():
             if k == 0:
                 axes[c, k].set_ylabel(f"Class {c}", fontsize=10)
 
-        # یک نمونه query صحیح/غلط برای این کلاس نشون بده
+        # show one correct/incorrect query example for this class
         query_idx = (q_label == c).nonzero()[0].item()
         q_pred = preds[query_idx].item()
         correct = "✓" if q_pred == c else "✗"

@@ -58,7 +58,7 @@ def train():
             avg_acc = running_acc / eval_every
             running_loss, running_acc = 0.0, 0.0
 
-            # ─── ارزیابی روی کلاس‌های دیده‌نشده (val) ───
+            # ─── evaluate on unseen classes (val) ───
             model.eval()
             val_accs = []
             with torch.no_grad():

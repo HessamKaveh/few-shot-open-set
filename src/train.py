@@ -1,107 +1,95 @@
-import os
+"""Train the two embedding networks on the 64 base classes only.
+
+    python src/train.py --method protonet     # Conv4, episodic Prototypical Networks training (Snell et al., 2017)
+    python src/train.py --method pretrain     # ResNet-12, plain 64-way classification ("RFS", Tian et al., 2020)
+"""
+import argparse
 import json
+import os
+import time
+
+import numpy as np
 import torch
-import torch.optim as optim
-import matplotlib.pyplot as plt
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
-from dataset import EpisodicOmniglot
-from model import EmbeddingNet
-from prototypical import prototypical_loss
+import data
+from model import Conv4, ResNet12
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
-N_WAY = 5
-K_SHOT = 5
-Q_QUERY = 5
-NUM_EPISODES_TRAIN = 2000
-NUM_EPISODES_VAL = 300
+ROOT = data.ROOT
 
 
-def train():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    print(f"Setting: {N_WAY}-way {K_SHOT}-shot learning")
+def protonet(X, Y, s, dev, episodes):
+    model = Conv4().to(dev)
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+    sched = torch.optim.lr_scheduler.StepLR(opt, step_size=episodes // 4, gamma=0.5)
+    n, k, q = 20, 5, 15                       # train "higher-way" than test, as in the paper
+    loader = DataLoader(data.Episodes(X, Y, s["base"], n, k, q), batch_size=None, num_workers=12)
+    y = torch.arange(n, device=dev).repeat_interleave(q)
+    hist, t0, run = [], time.time(), []
+    for ep, (xs, xq) in enumerate(loader):
+        if ep == episodes:
+            break
+        z = model(torch.cat([xs, xq]).to(dev, non_blocking=True))
+        proto = z[: n * k].view(n, k, -1).mean(1)
+        logits = -torch.cdist(z[n * k:], proto) ** 2
+        loss = F.cross_entropy(logits, y)
+        opt.zero_grad(); loss.backward(); opt.step(); sched.step()
+        run.append((loss.item(), (logits.argmax(1) == y).float().mean().item()))
+        if (ep + 1) % 500 == 0:
+            l, a = np.mean(run, 0); run = []
+            hist.append((ep + 1, float(l), float(a)))
+            print(f"protonet ep {ep + 1}/{episodes} loss {l:.3f} acc(20-way) {a:.3f} {(time.time() - t0) / 60:.1f} min",
+                  flush=True)
+    return model, hist
 
-    train_data = EpisodicOmniglot(background=True, n_way=N_WAY, k_shot=K_SHOT, q_query=Q_QUERY)
-    val_data = EpisodicOmniglot(background=False, n_way=N_WAY, k_shot=K_SHOT, q_query=Q_QUERY)
 
-    model = EmbeddingNet(in_channels=1).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+def pretrain(X, Y, s, dev, epochs):
+    base = np.isin(Y, s["base"])
+    remap = {c: i for i, c in enumerate(s["base"])}
+    yb = np.array([remap[c] for c in Y[base]])
+    loader = DataLoader(data.Images(X[base], yb, train=True), batch_size=64, shuffle=True, drop_last=True,
+                        num_workers=12, persistent_workers=True)
+    model = ResNet12(num_classes=64).to(dev).to(memory_format=torch.channels_last)
+    opt = torch.optim.SGD(model.parameters(), lr=0.05, momentum=0.9, weight_decay=5e-4, nesterov=True)
+    sched = torch.optim.lr_scheduler.OneCycleLR(opt, 0.05, total_steps=epochs * len(loader), pct_start=0.05)
+    scaler = torch.amp.GradScaler()
+    hist, t0 = [], time.time()
+    for ep in range(epochs):
+        model.train(); tot = cor = m = 0
+        for x, y in loader:
+            x, y = x.to(dev, non_blocking=True).to(memory_format=torch.channels_last), y.to(dev, non_blocking=True)
+            with torch.autocast("cuda", dtype=torch.float16):
+                out = model.fc(model(x))
+                loss = F.cross_entropy(out.float(), y)
+            opt.zero_grad(set_to_none=True); scaler.scale(loss).backward(); scaler.step(opt); scaler.update()
+            sched.step()
+            tot += loss.item() * len(y); cor += (out.argmax(1) == y).sum().item(); m += len(y)
+        hist.append((ep + 1, tot / m, cor / m))
+        print(f"pretrain ep {ep + 1}/{epochs} loss {tot / m:.3f} acc(64-way train) {cor / m:.3f} "
+              f"{(time.time() - t0) / 60:.1f} min", flush=True)
+    return model, hist
 
-    history = {"train_loss": [], "train_acc": [], "val_acc": []}
-    eval_every = 100
-    best_val_acc = 0.0
 
-    running_loss, running_acc = 0.0, 0.0
-
-    for episode in range(1, NUM_EPISODES_TRAIN + 1):
-        model.train()
-        s_img, s_label, q_img, q_label = train_data.sample_episode()
-        s_img, s_label = s_img.to(device), s_label.to(device)
-        q_img, q_label = q_img.to(device), q_label.to(device)
-
-        optimizer.zero_grad()
-        s_emb = model(s_img)
-        q_emb = model(q_img)
-        loss, acc = prototypical_loss(s_emb, s_label, q_emb, q_label, N_WAY)
-        loss.backward()
-        optimizer.step()
-
-        running_loss += loss.item()
-        running_acc += acc
-
-        if episode % eval_every == 0:
-            avg_loss = running_loss / eval_every
-            avg_acc = running_acc / eval_every
-            running_loss, running_acc = 0.0, 0.0
-
-            # ─── evaluate on unseen classes (val) ───
-            model.eval()
-            val_accs = []
-            with torch.no_grad():
-                for _ in range(NUM_EPISODES_VAL // eval_every):
-                    s_img, s_label, q_img, q_label = val_data.sample_episode()
-                    s_img, s_label = s_img.to(device), s_label.to(device)
-                    q_img, q_label = q_img.to(device), q_label.to(device)
-                    s_emb = model(s_img)
-                    q_emb = model(q_img)
-                    _, val_acc = prototypical_loss(s_emb, s_label, q_emb, q_label, N_WAY)
-                    val_accs.append(val_acc)
-
-            avg_val_acc = sum(val_accs) / len(val_accs)
-
-            history["train_loss"].append(avg_loss)
-            history["train_acc"].append(avg_acc)
-            history["val_acc"].append(avg_val_acc)
-
-            print(f"Episode {episode}/{NUM_EPISODES_TRAIN} | "
-                  f"Train Loss: {avg_loss:.4f} | Train Acc: {avg_acc:.4f} | Val Acc: {avg_val_acc:.4f}")
-
-            if avg_val_acc > best_val_acc:
-                best_val_acc = avg_val_acc
-                torch.save(model.state_dict(), os.path.join(RESULTS_DIR, "best_embedding_net.pt"))
-
-    with open(os.path.join(RESULTS_DIR, "history.json"), "w") as f:
-        json.dump(history, f, indent=2)
-
-    plt.figure(figsize=(10, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(history["train_loss"])
-    plt.title("Prototypical Loss"); plt.xlabel(f"x{eval_every} episodes")
-
-    plt.subplot(1, 2, 2)
-    plt.plot(history["train_acc"], label="Train Acc (seen classes)")
-    plt.plot(history["val_acc"], label="Val Acc (unseen classes)")
-    plt.legend(); plt.title(f"{N_WAY}-way {K_SHOT}-shot Accuracy")
-    plt.xlabel(f"x{eval_every} episodes")
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(RESULTS_DIR, "training_curves.png"))
-    print(f"\nBest validation accuracy (unseen classes): {best_val_acc:.4f}")
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--method", choices=["protonet", "pretrain"], required=True)
+    ap.add_argument("--episodes", type=int, default=30000)
+    ap.add_argument("--epochs", type=int, default=60)
+    a = ap.parse_args()
+    torch.manual_seed(0); np.random.seed(0)
+    X, Y, _, s, _ = data.split()
+    dev = torch.device("cuda")
+    if a.method == "protonet":
+        model, hist = protonet(X, Y, s, dev, a.episodes)
+    else:
+        model, hist = pretrain(X, Y, s, dev, a.epochs)
+    os.makedirs(os.path.join(ROOT, "cache"), exist_ok=True)
+    os.makedirs(os.path.join(ROOT, "results", "history"), exist_ok=True)
+    torch.save(model.state_dict(), os.path.join(ROOT, "cache", f"{a.method}.pt"))
+    json.dump(hist, open(os.path.join(ROOT, "results", "history", f"{a.method}.json"), "w"))
 
 
 if __name__ == "__main__":
-    train()
+    main()

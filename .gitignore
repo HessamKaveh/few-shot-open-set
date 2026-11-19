@@ -1,7 +1,9 @@
 __pycache__/
 *.pyc
-data/
-venv/
-.env
+cache/
+logs/
 *.pt
-!results/best_embedding_net.pt
+*.npy
+*.npz
+.env
+venv/

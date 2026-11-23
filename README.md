@@ -1,5 +1,7 @@
 # Can a few-shot classifier say "I don't know"?
 
+[![CI](https://github.com/HessamKaveh/few-shot-open-set/actions/workflows/ci.yml/badge.svg)](https://github.com/HessamKaveh/few-shot-open-set/actions/workflows/ci.yml) ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg) ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ### Open-set few-shot recognition: what happens when a robot taught 5 objects meets a 6th
 
 Few-shot learning is usually evaluated as a **closed** problem: teach N new classes with K images each, then test only
@@ -156,6 +158,21 @@ The earlier version of this repository (Prototypical Networks on Omniglot) is st
 * Liu et al. *Few-Shot Open-Set Recognition using Meta-Learning* (PEELER). CVPR 2020.
 * Jeong et al. *Few-shot Open-set Recognition by Transformation Consistency* (SnaTCHer). CVPR 2021.
 * Vovk, Gammerman, Shafer. *Algorithmic Learning in a Random World.* 2005.
+
+## Citation
+
+If you use this code, please cite it (metadata in [`CITATION.cff`](CITATION.cff)):
+
+```bibtex
+@software{kaveh2026_few_shot_open_set,
+  author  = {Kaveh, Hessam},
+  title   = {Can a few-shot classifier say "I don't know"?},
+  year    = {2026},
+  version = {1.0.0},
+  url     = {https://github.com/HessamKaveh/few-shot-open-set},
+  license = {MIT}
+}
+```
 
 ---
 

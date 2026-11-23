@@ -1,6 +1,6 @@
 # Can a few-shot classifier say "I don't know"?
 
-[![CI](https://github.com/HessamKaveh/few-shot-open-set/actions/workflows/ci.yml/badge.svg)](https://github.com/HessamKaveh/few-shot-open-set/actions/workflows/ci.yml) ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg) ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/HessamKaveh/few-shot-open-set/actions/workflows/ci.yml/badge.svg)](https://github.com/HessamKaveh/few-shot-open-set/actions/workflows/ci.yml) ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg) ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24465855.svg)](https://doi.org/10.5281/zenodo.24465855)
 
 ### Open-set few-shot recognition: what happens when a robot taught 5 objects meets a 6th
 
@@ -169,6 +169,7 @@ If you use this code, please cite it (metadata in [`CITATION.cff`](CITATION.cff)
   title   = {Can a few-shot classifier say "I don't know"?},
   year    = {2026},
   version = {1.0.0},
+  doi     = {10.5281/zenodo.24465855},
   url     = {https://github.com/HessamKaveh/few-shot-open-set},
   license = {MIT}
 }
